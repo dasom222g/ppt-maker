@@ -5,7 +5,8 @@
 ## 프로젝트 구조
 
 ```
-slides/           ← 완성된 슬라이드 HTML 결과물
+slides/           ← 실제 결과물 HTML (강의별 완성된 슬라이드)
+examples/         ← 스킬 개발·참고용 샘플 (결과물 아님)
 docs/             ← 리서치 노트, 디자인 룰 참고 문서
 prompt-source/    ← 슬라이드 생성에 사용된 프롬프트 원본
 template-source/  ← 디자인 레퍼런스 이미지 (슬라이드 패턴 참고용)
@@ -19,9 +20,13 @@ lecture-source/   ← 강의 원본 자료 (PDF 등) — gitignore 처리, GitHu
               └── patterns.md     ← 14가지 슬라이드 패턴 HTML 구조
 ```
 
+> `slides/` 와 `examples/` 는 다르다.
+> `slides/` = 실제 납품·발표용 결과물만.
+> `examples/` = 스킬 제작 과정에서 만든 샘플·레퍼런스 덱만.
+
 ## 슬라이드 생성 규칙
 
-- **출력 경로**: 반드시 `slides/` 폴더 안에 저장 — 루트에 직접 두지 않는다
+- **출력 경로**: 반드시 `slides/` 폴더 안에 저장 — 루트나 `examples/`에 두지 않는다
 - **파일명**: `{강의명}-slides.html` (소문자, 하이픈, 공백 없음)
 - **단일 파일**: 모든 CSS·JS·콘텐츠를 하나의 `.html` 파일에 인라인으로 포함
 - **베이스 템플릿**: 항상 `assets/base-template.html`을 시작점으로 사용
