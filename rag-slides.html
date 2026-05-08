@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG 완전 정복</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/webfontworld/gmarket/GmarketSans.css">
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --bg-card:   #161b22;
+      --bg-code:   #1e2430;
+      --bg-inset:  #252d3a;
+      --text:      #e6edf3;
+      --text-dim:  #8b949e;
+      --text-muted:#484f58;
+      --teal:      #2DD4BF;
+      --orange:    #FF6D3B;
+      --yellow:    #F0B429;
+      --purple:    #A78BFA;
+      --green:     #4ADE80;
+      --border:        rgba(255,255,255,0.08);
+      --border-teal:   rgba(45,212,191,0.25);
+      --border-orange: rgba(255,109,59,0.25);
+      --border-purple: rgba(167,139,250,0.25);
+      --dot:  rgba(255,255,255,0.055);
+      --ease: 0.36s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: clamp(12px, 1.35vw, 15px);
+      background: var(--bg);
+      color: var(--text);
+    }
+    body { overflow: hidden; }
+
+    /* ── 슬라이드 덱 ── */
+    .slide-deck { position: fixed; inset: 0; }
+    .slide {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, var(--dot) 1px, transparent 1px);
+      background-size: 26px 26px;
+      background-color: var(--bg);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(2.5rem,5.5vh,4.5rem) clamp(3.5rem,9vw,8rem);
+      gap: clamp(1.5rem,3.75vh,3rem);
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--ease);
+    }
+    .slide.active { opacity: 1; pointer-events: auto; }
+
+    /* ── 헤더 ── */
+    .slide__header {
+      display: flex; flex-direction: column; gap: 0.7rem;
+      padding-bottom: clamp(0.9rem,2.2vh,1.6rem);
+      border-bottom: 1px solid var(--border);
+    }
+    .slide__label {
+      font-size: clamp(0.58rem,0.85vw,0.72rem); font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal);
+    }
+    .slide__title {
+      font-size: clamp(2rem,5.2vw,3.8rem); font-weight: 800;
+      line-height: 1.08; letter-spacing: -0.015em;
+    }
+    .slide__title .hl        { color: var(--teal); }
+    .slide__title .hl-orange { color: var(--orange); }
+    .slide__title .hl-purple { color: var(--purple); }
+    .slide__sub {
+      font-size: clamp(1rem,1.65vw,1.15rem); font-weight: 400;
+      color: var(--text-dim); line-height: 1.5;
+    }
+
+    /* ── 바디 ── */
+    .slide__body {
+      overflow: hidden; display: flex; flex-direction: column;
+      gap: clamp(1.2rem,2.7vh,2.1rem); min-height: 0;
+    }
+    .slide__body > .grid-2     { flex: 1; min-height: 0; align-items: stretch; }
+    .slide__body > .grid-3     { flex: 1; min-height: 0; align-items: stretch; }
+    .slide__body > .grid-35-65 { flex: 1; min-height: 0; }
+    .slide__body > .code-col   { flex: 1; min-height: 0; }
+
+    /* ── 코드 컬럼 ── */
+    .code-col { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .code-col > pre { flex: 1; min-height: 0; max-height: none; }
+    .card pre { max-height: clamp(8rem,18vh,14rem); }
+
+    /* ── 푸터 ── */
+    .slide__footer {
+      border-top: 1px solid var(--border);
+      padding-top: clamp(0.5rem,1.3vh,0.9rem);
+      display: flex; align-items: center;
+      font-size: clamp(0.58rem,0.85vw,0.7rem); font-weight: 400;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted);
+    }
+
+    /* ── 타이포그래피 ── */
+    .display {
+      font-family: 'GmarketSans','Pretendard',sans-serif;
+      font-size: clamp(2.8rem,7vw,5.5rem); font-weight: 900;
+      line-height: 1.0; letter-spacing: -0.03em;
+    }
+    .h2 { font-size: clamp(1.3rem,2.8vw,2.1rem); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+    .body-text { font-size: clamp(1.1rem,2.1vw,1.5rem); line-height: 1.65; color: var(--text); }
+    .caption   { font-size: clamp(0.9rem,1.45vw,1.15rem); line-height: 1.5; color: var(--text-dim); }
+    .dim   { color: var(--text-dim) !important; }
+    .muted { color: var(--text-muted) !important; }
+    .kw         { color: var(--teal);   font-weight: 600; }
+    .kw-orange  { color: var(--orange); font-weight: 600; }
+    .kw-yellow  { color: var(--yellow); font-weight: 600; }
+    .kw-purple  { color: var(--purple); font-weight: 600; }
+    .kw-green   { color: var(--green);  font-weight: 600; }
+
+    /* ── 인라인 코드 ── */
+    code {
+      font-family: 'Monaco','Menlo','Consolas',monospace; font-size: 0.85em;
+      background: rgba(45,212,191,0.1); color: var(--teal);
+      padding: 2px 6px; border-radius: 3px;
+    }
+
+    /* ── 코드 블록 ── */
+    pre {
+      font-family: 'Monaco','Menlo','Consolas',monospace;
+      font-size: clamp(0.58rem,1.1vw,0.76rem); line-height: 1.72;
+      background: var(--bg-code); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1rem 1.2rem; color: #c9d1d9;
+      overflow-y: auto; overflow-x: hidden; white-space: pre-wrap; word-break: break-word;
+    }
+    pre .hl { display: block; background: rgba(45,212,191,0.07); border-left: 2px solid var(--teal); margin: 0 -1.2rem; padding: 0 1.2rem 0 calc(1.2rem - 2px); }
+    pre .kw { color: #f87171; font-weight: normal; }
+    pre .fn { color: #c4b5fd; font-weight: normal; }
+    pre .st { color: #93c5fd; font-weight: normal; }
+    pre .cm { color: #555f6e; font-style: italic; }
+    pre .nm { color: #6ee7b7; font-weight: normal; }
+    pre .op { color: #79c0ff; font-weight: normal; }
+
+    /* ── 그리드 ── */
+    .grid-2     { display: grid; grid-template-columns: 1fr 1fr;           gap: clamp(1.2rem,3vw,2.1rem); }
+    .grid-3     { display: grid; grid-template-columns: 1fr 1fr 1fr;       gap: clamp(1.2rem,3vw,2.1rem); }
+    .grid-4     { display: grid; grid-template-columns: repeat(4,1fr);     gap: clamp(0.9rem,1.8vw,1.5rem); }
+    .grid-35-65 { display: grid; grid-template-columns: 35fr 65fr;         gap: clamp(3rem,7.5vw,7.5rem); }
+
+    /* ── 카드 ── */
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: clamp(1.3rem,2.7vw,2rem); }
+    .card--teal   { border-left: 3px solid var(--teal);   background: rgba(45,212,191,0.05); }
+    .card--orange { border-left: 3px solid var(--orange); background: rgba(255,109,59,0.05); }
+    .card--green  { border-left: 3px solid var(--green);  background: rgba(74,222,128,0.05); }
+    .card--purple { border-left: 3px solid var(--purple); background: rgba(167,139,250,0.05); }
+    .card__label { font-size: 0.62em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--teal); margin-bottom: 0.8rem; }
+
+    /* ── 번호 목록 ── */
+    .num-list { list-style: none; display: flex; flex-direction: column; gap: 1.1rem; }
+    .num-list li { display: flex; align-items: flex-start; gap: 1.35rem; font-size: clamp(1.1rem,2.1vw,1.5rem); line-height: 1.55; }
+    .num-circle {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1.75em; height: 1.75em; min-width: 1.75em;
+      border: 1.5px solid var(--teal); border-radius: 50%;
+      font-size: 0.72em; font-weight: 700; color: var(--teal); margin-top: 0.06em; flex-shrink: 0;
+    }
+    .num-circle--orange { border-color: var(--orange); color: var(--orange); }
+    .num-circle--purple { border-color: var(--purple); color: var(--purple); }
+    .num-circle--green  { border-color: var(--green);  color: var(--green); }
+
+    /* ── 솔로 번호 목록 (J패턴) ── */
+    .num-list-solo { list-style: none; display: flex; flex-direction: column; justify-content: center; gap: clamp(2rem,4vh,3.5rem); height: 100%; }
+    .num-list-solo li { display: flex; align-items: flex-start; gap: 2rem; font-size: clamp(1.4rem,2.8vw,2.1rem); font-weight: 600; line-height: 1.4; }
+    .num-circle-lg {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1.6em; height: 1.6em; min-width: 1.6em;
+      border: 2px solid var(--teal); border-radius: 50%;
+      font-size: 1em; font-weight: 800; color: var(--teal); flex-shrink: 0;
+    }
+    .num-circle-lg--orange { border-color: var(--orange); color: var(--orange); }
+    .num-circle-lg--purple { border-color: var(--purple); color: var(--purple); }
+
+    /* ── 불릿 목록 ── */
+    .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; }
+    .bullet-list li { display: flex; align-items: baseline; gap: 0.975rem; font-size: clamp(0.9rem,1.45vw,1.15rem); line-height: 1.6; }
+    .bullet-list li::before      { content: '—'; color: var(--teal);   font-weight: 700; flex-shrink: 0; }
+    .bullet-list li.ok::before   { content: '✓'; color: var(--green); }
+    .bullet-list li.no::before   { content: '✕'; color: var(--orange); }
+    .bullet-list li.note::before { content: '→'; color: var(--yellow); }
+    .bullet-list code { white-space: nowrap; }
+
+    /* ── 팁 ── */
+    .tip {
+      background: rgba(45,212,191,0.05); border: 1px solid rgba(45,212,191,0.18);
+      border-radius: 3px; padding: 0.975rem 1.5rem;
+      font-size: clamp(0.9rem,1.35vw,1.1rem); color: var(--text-dim); line-height: 1.6;
+    }
+    .tip::before { content: '→  '; color: var(--teal); font-weight: 700; }
+    .divider { height: 1px; background: var(--border); }
+
+    /* ── 섹션 전환 ── */
+    .slide--section {
+      display: flex; align-items: center; justify-content: center;
+      padding: 0; background-image: none; background-color: #1A7A6E;
+    }
+    .section-menu { display: flex; flex-direction: column; gap: 2.1rem; }
+    .section-item { font-size: clamp(1.2rem,2.4vw,1.8rem); font-weight: 400; color: rgba(255,255,255,0.45); display: flex; align-items: center; gap: 1.5rem; }
+    .section-item--active { color: #ffffff; font-weight: 700; }
+    .section-arrow { opacity: 0; }
+    .section-item--active .section-arrow { opacity: 1; }
+
+    /* ── 임팩트 스테이트먼트 ── */
+    .slide--statement {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: clamp(3rem,8vh,7rem) clamp(5rem,14vw,13rem);
+    }
+
+    /* ── 좌우 분할 ── */
+    .slide--split { display: flex; flex-direction: row; padding: 0; }
+    .split-left { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1.8rem; padding: clamp(2.5rem,6vh,5rem) clamp(3rem,6vw,6rem); }
+    .split-right { width: 48%; min-width: 48%; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: clamp(2.5rem,6vw,6rem); gap: 2.1rem; }
+    .split-right--teal   { background: #0d2420; }
+    .split-right--orange { background: #231408; }
+    .split-right--purple { background: #1a1030; }
+    .split__label { font-size: clamp(0.58rem,0.85vw,0.72rem); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); }
+    .split__label--orange { color: var(--orange); }
+    .split__label--purple { color: var(--purple); }
+    .split__title { font-size: clamp(1.7rem,4.2vw,3rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.015em; }
+    .split__title .hl        { color: var(--teal); }
+    .split__title .hl-orange { color: var(--orange); }
+    .split__title .hl-purple { color: var(--purple); }
+    .panel-quote { font-family: 'GmarketSans','Pretendard',sans-serif; font-size: clamp(1.3rem,2.8vw,2.1rem); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; color: var(--teal); }
+    .panel-quote--orange { color: var(--orange); }
+    .panel-quote--purple { color: var(--purple); }
+    .panel-stat { font-family: 'GmarketSans','Pretendard',sans-serif; font-size: clamp(4rem,9.5vw,7rem); font-weight: 900; line-height: 1.0; letter-spacing: -0.04em; }
+
+    /* ── 컬럼 카드 ── */
+    .col-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: clamp(1.5rem,2.7vw,2.25rem); display: flex; flex-direction: column; gap: 0.975rem; }
+    .col-card__num { display: inline-flex; align-items: center; justify-content: center; width: 1.9em; height: 1.9em; border: 1.5px solid var(--teal); border-radius: 50%; font-size: clamp(0.78rem,1.3vw,0.9rem); font-weight: 700; color: var(--teal); }
+    .col-card__num--orange { border-color: var(--orange); color: var(--orange); }
+    .col-card__num--purple { border-color: var(--purple); color: var(--purple); }
+    .col-card__num--green  { border-color: var(--green);  color: var(--green); }
+    .col-card__title { font-size: clamp(1.4rem,2.8vw,2rem); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+    .col-card__body  { font-size: clamp(0.9rem,1.45vw,1.15rem); line-height: 1.6; color: var(--text-dim); }
+    .grid-4 .col-card__title { font-size: clamp(1rem,1.8vw,1.45rem); }
+    .grid-4 .col-card { padding: clamp(1rem,2vw,1.6rem); }
+
+    /* ── 어젠다 ── */
+    .agenda-list { list-style: none; display: flex; flex-direction: column; gap: clamp(0.9rem,1.8vh,1.5rem); }
+    .agenda-list li { display: flex; align-items: baseline; gap: 1.2rem; font-size: clamp(1.1rem,2.1vw,1.5rem); font-weight: 500; line-height: 1.5; color: var(--text-dim); }
+    .agenda-list li.active { color: var(--text); font-weight: 700; }
+    .agenda-num { font-size: 0.72em; font-weight: 700; color: var(--text-muted); min-width: 2ch; flex-shrink: 0; }
+    .agenda-list li.active .agenda-num { color: var(--teal); }
+
+    /* ── 언어 그리드 ── */
+    .lang-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: clamp(0.6rem,1.2vw,1rem); }
+    .lang-tag { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 0.6rem 0.9rem; font-size: clamp(0.78rem,1.3vw,0.9rem); font-weight: 600; text-align: center; color: var(--text-dim); letter-spacing: 0.02em; }
+    .lang-tag--teal   { border-color: var(--border-teal);            color: var(--teal);   background: rgba(45,212,191,0.06); }
+    .lang-tag--orange { border-color: var(--border-orange);          color: var(--orange); background: rgba(255,109,59,0.06); }
+    .lang-tag--purple { border-color: var(--border-purple);          color: var(--purple); background: rgba(167,139,250,0.06); }
+    .lang-tag--green  { border-color: rgba(74,222,128,0.25);         color: var(--green);  background: rgba(74,222,128,0.06); }
+
+    /* ── 고정 UI ── */
+    .progress-bar { position: fixed; top: 0; left: 0; width: 100%; height: 2px; z-index: 200; background: rgba(255,255,255,0.04); user-select: none; }
+    .progress-fill { height: 100%; background: var(--teal); transition: width 0.3s ease-out; }
+    .nav-btn {
+      position: fixed; top: 50%; z-index: 150; transform: translateY(-50%); user-select: none;
+      width: clamp(1.9rem,2.8vw,2.5rem); height: clamp(1.9rem,2.8vw,2.5rem);
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 3px;
+      color: var(--text-muted); font-size: 0.8rem; cursor: pointer; transition: all 0.18s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-btn:hover { background: rgba(45,212,191,0.1); color: var(--teal); border-color: var(--border-teal); }
+    .nav-btn:disabled { opacity: 0.08; cursor: not-allowed; }
+    #btn-prev { left:  clamp(0.4rem,1.2vw,1.1rem); }
+    #btn-next { right: clamp(0.4rem,1.2vw,1.1rem); }
+    .dot-nav { position: fixed; bottom: 1.3rem; left: 50%; transform: translateX(-50%); z-index: 150; display: flex; gap: 5px; align-items: center; user-select: none; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.18); cursor: pointer; transition: all 0.22s ease; border: none; }
+    .dot.active { width: 22px; border-radius: 3px; background: var(--teal); }
+    .dot:hover:not(.active) { background: rgba(255,255,255,0.38); }
+    .slide-counter { position: fixed; bottom: 1.2rem; right: 1.8rem; z-index: 150; font-family: 'Monaco',monospace; font-size: 0.62em; color: var(--text-muted); letter-spacing: 0.07em; user-select: none; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+<button class="nav-btn" id="btn-prev" aria-label="이전 슬라이드">&#8592;</button>
+<button class="nav-btn" id="btn-next" aria-label="다음 슬라이드">&#8594;</button>
+<div class="dot-nav" id="dot-nav"></div>
+<div class="slide-counter"><span id="cur">1</span> / <span id="tot">21</span></div>
+
+<div class="slide-deck" id="deck">
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 1. [A] 타이틀 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide active" data-index="0">
+    <header class="slide__header">
+      <span class="slide__label">RAG · 2026</span>
+      <h1 class="slide__title">
+        RAG <span class="hl">완전 정복</span>
+      </h1>
+      <p class="slide__sub">LangChain을 활용한 RAG 구현 및 고도화</p>
+    </header>
+    <main class="slide__body">
+      <div style="display:flex;align-items:baseline;gap:0.9rem;margin-top:0.45rem;">
+        <span style="font-weight:700;font-size:clamp(1rem,1.8vw,1.2rem);">후츠릿</span>
+        <span class="dim" style="font-size:0.85em;">·</span>
+        <span class="dim" style="font-size:clamp(0.95rem,1.6vw,1.1rem);">RAG 완전 정복 · 2026</span>
+      </div>
+      <p class="body-text dim" style="max-width:52ch;">LLM의 한계를 이해하고, 검색·증강·생성의 세 단계로 AI의 답변 정확도를 높이는 RAG를 처음부터 완전히 이해합니다.</p>
+      <div class="tip">
+        <span style="white-space:nowrap;"><span class="kw">Space</span> 또는 <span class="kw">→</span> 키로 다음</span>&nbsp;·&nbsp;<span style="white-space:nowrap;"><span class="kw">←</span> 키로 이전</span>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 2. [F] 목차 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="1">
+    <header class="slide__header">
+      <span class="slide__label">목차</span>
+      <h1 class="slide__title">강의 <span class="hl">구성</span></h1>
+      <p class="slide__sub">총 4개 챕터</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-35-65" style="align-items:start;">
+        <div style="padding-top:0.4rem;">
+          <p class="body-text dim" style="line-height:1.8;">RAG의 이론부터<br>파이프라인까지<br><span class="kw">순서대로</span> 학습합니다</p>
+        </div>
+        <ol class="agenda-list">
+          <li><span class="agenda-num">01</span><span>LLM의 한계 — 왜 RAG가 필요한가</span></li>
+          <li><span class="agenda-num">02</span><span>RAG란 무엇인가 — 개념과 구조</span></li>
+          <li><span class="agenda-num">03</span><span>Indexing Pipeline — 문서 준비 단계</span></li>
+          <li><span class="agenda-num">04</span><span>Query Pipeline — 검색·증강·생성</span></li>
+        </ol>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 3. [B] 섹션 전환 — Ch.1 LLM의 한계 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--section" data-index="2">
+    <nav class="section-menu">
+      <div class="section-item section-item--active">
+        <span class="section-arrow">→</span>
+        Chapter 1 · LLM의 한계
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 2 · RAG란 무엇인가
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 3 · Indexing Pipeline
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 4 · Query Pipeline
+      </div>
+    </nav>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 4. LLM 동작 방식 — 연결 박스 흐름 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="3">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 1 · LLM의 한계</span>
+      <h1 class="slide__title">LLM <span class="hl">동작 방식</span></h1>
+      <p class="slide__sub">이전 단어에서 다음에 올 단어(토큰)의 확률을 예측</p>
+    </header>
+    <main class="slide__body">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:clamp(2rem,4vh,3.5rem);">
+        <!-- Token flow boxes -->
+        <div style="display:flex;align-items:center;justify-content:center;">
+          <!-- Box 1 -->
+          <div style="background:var(--bg-card);border:1.5px solid var(--border-teal);border-radius:8px;width:clamp(9rem,16vw,14rem);height:clamp(8rem,14vh,11rem);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.5rem;flex-shrink:0;">
+            <span style="font-size:clamp(0.58rem,0.85vw,0.72rem);color:var(--teal);font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">입력 토큰</span>
+            <span style="font-size:clamp(1.6rem,3.2vw,2.6rem);font-weight:700;">단어</span>
+          </div>
+          <!-- Connector 1 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0.45rem;padding:0 clamp(0.8rem,2.5vw,2.2rem);">
+            <div style="display:flex;align-items:center;width:clamp(3rem,6vw,5rem);">
+              <div style="height:2px;flex:1;background:linear-gradient(to right,rgba(45,212,191,0.55),rgba(45,212,191,0.15));"></div>
+              <span style="color:rgba(45,212,191,0.55);font-size:0.75rem;">▶</span>
+            </div>
+            <span style="font-size:clamp(0.58rem,0.82vw,0.7rem);color:var(--text-muted);letter-spacing:0.06em;">연관</span>
+          </div>
+          <!-- Box 2 -->
+          <div style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:8px;width:clamp(9rem,16vw,14rem);height:clamp(8rem,14vh,11rem);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <span style="font-size:clamp(2rem,4vw,3.2rem);color:var(--text-dim);letter-spacing:0.25em;">···</span>
+          </div>
+          <!-- Connector 2 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0.45rem;padding:0 clamp(0.8rem,2.5vw,2.2rem);">
+            <div style="display:flex;align-items:center;width:clamp(3rem,6vw,5rem);">
+              <div style="height:2px;flex:1;background:linear-gradient(to right,rgba(45,212,191,0.55),rgba(45,212,191,0.15));"></div>
+              <span style="color:rgba(45,212,191,0.55);font-size:0.75rem;">▶</span>
+            </div>
+            <span style="font-size:clamp(0.58rem,0.82vw,0.7rem);color:var(--text-muted);letter-spacing:0.06em;">연관</span>
+          </div>
+          <!-- Box 3 -->
+          <div style="background:var(--bg-card);border:1.5px solid var(--border);border-radius:8px;width:clamp(9rem,16vw,14rem);height:clamp(8rem,14vh,11rem);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <span style="font-size:clamp(2rem,4vw,3.2rem);color:var(--text-dim);letter-spacing:0.25em;">···</span>
+          </div>
+        </div>
+        <div class="tip">LLM은 <span class="kw">학습 데이터의 확률 분포</span>를 기반으로 텍스트를 생성 — 사실 여부와 무관하게 통계적으로 그럴듯한 다음 단어를 반복적으로 선택합니다</div>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 5. [D] Hallucination -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--split" data-index="4">
+    <div class="split-left">
+      <span class="split__label">Chapter 1 · LLM의 한계</span>
+      <h2 class="split__title">Hallucination —<br><span class="hl-orange">환각 현상</span></h2>
+      <p class="body-text dim" style="max-width:36ch;">사실이 아닌 것을 사실인 듯 말하는 현상. 확률 기반 생성의 구조적 한계입니다.</p>
+      <ul class="bullet-list" style="max-width:38ch;">
+        <li class="no">문장 생성 메커니즘이 확률 기반</li>
+        <li class="no">모델이 학습하지 못한 데이터</li>
+        <li class="no">학습 데이터가 충분하지 않은 경우</li>
+        <li class="no">사용자 제공 정보를 참으로 가정</li>
+      </ul>
+    </div>
+    <div class="split-right split-right--orange">
+      <span class="split__label split__label--orange">발생 원인</span>
+      <p class="panel-quote panel-quote--orange">"사실이 아닌<br>것을 사실처럼<br>답변한다"</p>
+      <div class="divider" style="width:100%;background:rgba(255,109,59,0.2);"></div>
+      <p class="caption" style="color:rgba(255,109,59,0.5);">확률 기반 생성의 구조적 문제</p>
+    </div>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 6. [C] 임팩트 — 프롬프트의 한계 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--statement" data-index="5">
+    <p class="slide__label" style="margin-bottom:2.7rem;">Chapter 1 · 결론</p>
+    <h1 class="display">
+      프롬프트만으로는<br><span style="color:var(--teal);">충분하지 않다</span>
+    </h1>
+    <p class="body-text dim" style="margin-top:2.7rem;max-width:42ch;line-height:1.7;">
+      "신뢰할 수 있는 출처를 참조하세요"라고 제한해도,<br>
+      학습 데이터 밖의 정보 — 회사 내부 문서, 최신 뉴스 — 는 여전히 알 수 없습니다.
+    </p>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 7. [B] 섹션 전환 — Ch.2 RAG -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--section" data-index="6">
+    <nav class="section-menu">
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 1 · LLM의 한계
+      </div>
+      <div class="section-item section-item--active">
+        <span class="section-arrow">→</span>
+        Chapter 2 · RAG란 무엇인가
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 3 · Indexing Pipeline
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 4 · Query Pipeline
+      </div>
+    </nav>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 8. [D] RAG란? -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--split" data-index="7">
+    <div class="split-left">
+      <span class="split__label">Chapter 2 · RAG 개념</span>
+      <h2 class="split__title">RAG란? —<br><span class="hl">오픈북 시험</span></h2>
+      <p class="body-text dim" style="max-width:36ch;">AI에게 책을 펼쳐놓고 시험 보게 하는 기술. 외부 문서를 실시간으로 참조해 더 정확한 답변을 만듭니다.</p>
+      <ul class="bullet-list" style="max-width:38ch;">
+        <li class="no">기존 LLM: 학습한 지식에만 의존해 답변 생성</li>
+        <li class="ok">RAG형 LLM: 외부 문서·웹 검색으로 답변 생성</li>
+      </ul>
+    </div>
+    <div class="split-right split-right--teal">
+      <span class="split__label">핵심 개념</span>
+      <p class="panel-quote">"AI에게<br>오픈북 시험을<br>보게 하는 기술"</p>
+      <div class="divider" style="width:100%;background:rgba(45,212,191,0.2);"></div>
+      <p class="caption" style="color:rgba(45,212,191,0.5);">Retrieval-Augmented Generation</p>
+    </div>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 9. [G-2] RAG vs Fine-tuning -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="8">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 2 · LLM 한계 극복</span>
+      <h1 class="slide__title">RAG <span class="hl">vs</span> Fine-tuning</h1>
+      <p class="slide__sub">두 가지 접근법의 차이를 이해하면 RAG가 왜 필요한지 명확해집니다</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-2">
+        <div class="col-card" style="border-color:var(--border-teal);">
+          <span class="col-card__num">RAG</span>
+          <div class="col-card__title">외부 데이터 주입</div>
+          <div class="col-card__body">외부 데이터를 프롬프트에 주입해 LLM 답변 품질을 향상시키는 방식</div>
+          <ul class="bullet-list">
+            <li class="ok">외부 지식 추가로 정확도·신뢰도 향상</li>
+            <li class="ok">추가 학습이 필요하지 않음</li>
+            <li class="no">검색된 정보의 품질에 의존</li>
+          </ul>
+        </div>
+        <div class="col-card" style="border-color:var(--border-orange);">
+          <span class="col-card__num col-card__num--orange">Fine</span>
+          <div class="col-card__title">모델 재학습</div>
+          <div class="col-card__body">모델 자체를 특정 데이터로 재학습시켜 특정 작업 성능을 높이는 방식</div>
+          <ul class="bullet-list">
+            <li class="ok">특정 작업 성능 극대화 가능</li>
+            <li class="no">추가 학습 데이터 및 비용 필요</li>
+            <li class="no">학습 데이터 외 질의엔 취약</li>
+          </ul>
+        </div>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 10. [J] R·A·G 의미 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="9">
+    <main class="slide__body" style="justify-content:center;">
+      <ol class="num-list-solo">
+        <li>
+          <span class="num-circle-lg">R</span>
+          <div>
+            <div style="color:var(--teal);margin-bottom:0.4rem;font-size:clamp(1.4rem,2.8vw,2.1rem);">Retrieval — 검색</div>
+            <div class="caption" style="font-weight:400;">필요한 정보를 외부 문서·데이터베이스에서 찾아오는 것</div>
+          </div>
+        </li>
+        <li>
+          <span class="num-circle-lg num-circle-lg--orange">A</span>
+          <div>
+            <div style="color:var(--orange);margin-bottom:0.4rem;font-size:clamp(1.4rem,2.8vw,2.1rem);">Augmented — 증강</div>
+            <div class="caption" style="font-weight:400;">찾아온 정보를 프롬프트에 추가해 질문을 강화하는 것</div>
+          </div>
+        </li>
+        <li>
+          <span class="num-circle-lg num-circle-lg--purple">G</span>
+          <div>
+            <div style="color:var(--purple);margin-bottom:0.4rem;font-size:clamp(1.4rem,2.8vw,2.1rem);">Generation — 생성</div>
+            <div class="caption" style="font-weight:400;">증강된 프롬프트로 LLM이 정확한 근거 기반 답변을 생성하는 것</div>
+          </div>
+        </li>
+      </ol>
+    </main>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 11. [G-2] Indexing vs Query 파이프라인 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="10">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 2 · RAG 구조</span>
+      <h1 class="slide__title">RAG <span class="hl">파이프라인</span> 2종</h1>
+      <p class="slide__sub">RAG는 두 단계 파이프라인으로 구분된다</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-2">
+        <div class="col-card" style="border-color:var(--border-teal);">
+          <span class="col-card__num">Index</span>
+          <div class="col-card__title">Indexing Pipeline</div>
+          <div class="col-card__body">문서를 검색 가능한 형태로 변환·저장하는 사전 준비 단계</div>
+          <ul class="bullet-list">
+            <li class="note">실행 시점: <strong>사전 준비 (1회성)</strong></li>
+            <li>흐름: 문서 → 청킹 → 임베딩 → Vector DB</li>
+            <li class="ok">한 번만 실행하면 이후 재사용 가능</li>
+          </ul>
+        </div>
+        <div class="col-card" style="border-color:var(--border-purple);">
+          <span class="col-card__num col-card__num--purple">Query</span>
+          <div class="col-card__title">Query Pipeline</div>
+          <div class="col-card__body">질문에 맞는 정보를 검색하고, 프롬프트를 증강해 답변을 생성하는 실시간 단계</div>
+          <ul class="bullet-list">
+            <li class="note">실행 시점: <strong>질문마다 실시간</strong></li>
+            <li>흐름: 질문 → 검색 → 증강 → LLM → 답변</li>
+            <li class="ok">Indexing 결과를 기반으로 매번 실행</li>
+          </ul>
+        </div>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 12. [B] 섹션 전환 — Ch.3 Indexing -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--section" data-index="11">
+    <nav class="section-menu">
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 1 · LLM의 한계
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 2 · RAG란 무엇인가
+      </div>
+      <div class="section-item section-item--active">
+        <span class="section-arrow">→</span>
+        Chapter 3 · Indexing Pipeline
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 4 · Query Pipeline
+      </div>
+    </nav>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 13. Indexing Pipeline 흐름 — 다이어그램 + 단계 레이블 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="12">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 3 · Indexing Pipeline</span>
+      <h1 class="slide__title">Indexing <span class="hl">Pipeline</span> 흐름</h1>
+      <p class="slide__sub">LLM은 문서 전체를 못 읽는다</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-2" style="align-items:center;">
+        <!-- Left: 흐름 다이어그램 -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:0.45rem;">
+          <!-- 문서 -->
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.65rem 1rem;width:100%;display:flex;align-items:center;gap:0.7rem;">
+            <span class="caption dim">문서</span>
+            <div style="display:flex;gap:0.28rem;margin-left:auto;">
+              <div style="width:1.4rem;height:1.25rem;background:#6366f1;border-radius:3px;"></div>
+              <div style="width:1.4rem;height:1.25rem;background:#4f46e5;border-radius:3px;opacity:0.9;"></div>
+              <div style="width:1.4rem;height:1.25rem;background:#3730a3;border-radius:3px;opacity:0.85;"></div>
+              <div style="width:1.4rem;height:1.25rem;background:var(--teal);border-radius:3px;opacity:0.75;"></div>
+              <div style="width:1.4rem;height:1.25rem;background:#14b8a6;border-radius:3px;opacity:0.6;"></div>
+            </div>
+          </div>
+          <!-- ↓ 자르기 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+            <div style="width:1.5px;height:0.9rem;background:rgba(255,255,255,0.12);"></div>
+            <span style="font-size:0.6rem;color:var(--text-muted);padding:0.1rem 0.4rem;">① 자르기</span>
+            <div style="color:rgba(255,255,255,0.2);font-size:0.6rem;line-height:1;">▼</div>
+          </div>
+          <!-- 청크들 -->
+          <div style="display:flex;gap:0.35rem;width:100%;">
+            <div style="flex:1;background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.38);border-radius:5px;padding:0.5rem 0.2rem;text-align:center;font-size:clamp(0.65rem,1vw,0.82rem);">청크 1</div>
+            <div style="flex:1;background:rgba(79,70,229,0.22);border:1px solid rgba(79,70,229,0.42);border-radius:5px;padding:0.5rem 0.2rem;text-align:center;font-size:clamp(0.65rem,1vw,0.82rem);">청크 2</div>
+            <div style="flex:1;background:rgba(55,48,163,0.22);border:1px solid rgba(55,48,163,0.42);border-radius:5px;padding:0.5rem 0.2rem;text-align:center;font-size:clamp(0.65rem,1vw,0.82rem);">청크 3</div>
+          </div>
+          <!-- ↓ 임베딩 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+            <div style="width:1.5px;height:0.9rem;background:rgba(255,255,255,0.12);"></div>
+            <span style="font-size:0.6rem;color:var(--text-muted);padding:0.1rem 0.4rem;">② 숫자로 바꾸기 (임베딩)</span>
+            <div style="color:rgba(255,255,255,0.2);font-size:0.6rem;line-height:1;">▼</div>
+          </div>
+          <!-- 벡터들 -->
+          <div style="display:flex;gap:0.35rem;width:100%;">
+            <div style="flex:1;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;padding:0.4rem 0.2rem;text-align:center;font-size:clamp(0.48rem,0.75vw,0.62rem);color:var(--text-dim);">[0.82,&minus;0.15,&nbsp;0.67]</div>
+            <div style="flex:1;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;padding:0.4rem 0.2rem;text-align:center;font-size:clamp(0.48rem,0.75vw,0.62rem);color:var(--text-dim);">[0.41,&nbsp;0.93,&minus;0.22]</div>
+            <div style="flex:1;background:var(--bg-inset);border:1px solid var(--border);border-radius:5px;padding:0.4rem 0.2rem;text-align:center;font-size:clamp(0.48rem,0.75vw,0.62rem);color:var(--text-dim);">[&minus;0.33,&nbsp;0.58,&nbsp;0.71]</div>
+          </div>
+          <!-- ↓ 저장 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+            <div style="width:1.5px;height:0.9rem;background:rgba(255,255,255,0.12);"></div>
+            <span style="font-size:0.6rem;color:var(--text-muted);padding:0.1rem 0.4rem;">③ 저장하기</span>
+            <div style="color:rgba(255,255,255,0.2);font-size:0.6rem;line-height:1;">▼</div>
+          </div>
+          <!-- 벡터 DB -->
+          <div style="background:rgba(45,212,191,0.08);border:1.5px solid var(--border-teal);border-radius:6px;padding:0.65rem 0;width:60%;text-align:center;">
+            <span style="color:var(--teal);font-weight:700;font-size:clamp(0.85rem,1.35vw,1.05rem);">벡터 DB</span>
+          </div>
+        </div>
+        <!-- Right: 단계 레이블 -->
+        <div style="display:flex;flex-direction:column;gap:1.3rem;padding-left:0.5rem;">
+          <div style="display:flex;align-items:flex-start;gap:1rem;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;min-width:1.7em;border:1.5px solid var(--teal);border-radius:50%;font-size:0.68em;font-weight:700;color:var(--teal);flex-shrink:0;margin-top:0.1em;">1</span>
+            <div>
+              <div style="font-weight:700;font-size:clamp(1rem,1.9vw,1.4rem);margin-bottom:0.25rem;">Load — 문서 로드</div>
+              <div class="caption">PDF, 웹페이지 등 다양한 문서를 불러옵니다</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:1rem;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;min-width:1.7em;border:1.5px solid var(--orange);border-radius:50%;font-size:0.68em;font-weight:700;color:var(--orange);flex-shrink:0;margin-top:0.1em;">2</span>
+            <div>
+              <div style="font-weight:700;font-size:clamp(1rem,1.9vw,1.4rem);margin-bottom:0.25rem;">Split / Chunk — 청킹</div>
+              <div class="caption">LLM이 처리할 수 있는 작은 단위로 분할합니다</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:1rem;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;min-width:1.7em;border:1.5px solid var(--purple);border-radius:50%;font-size:0.68em;font-weight:700;color:var(--purple);flex-shrink:0;margin-top:0.1em;">3</span>
+            <div>
+              <div style="font-weight:700;font-size:clamp(1rem,1.9vw,1.4rem);margin-bottom:0.25rem;">Embedding — 임베딩</div>
+              <div class="caption">각 청크를 의미를 보존하는 숫자 벡터로 변환합니다</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:1rem;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;min-width:1.7em;border:1.5px solid var(--green);border-radius:50%;font-size:0.68em;font-weight:700;color:var(--green);flex-shrink:0;margin-top:0.1em;">4</span>
+            <div>
+              <div style="font-weight:700;font-size:clamp(1rem,1.9vw,1.4rem);margin-bottom:0.25rem;">Store — 저장</div>
+              <div class="caption">벡터와 원본 텍스트를 Vector DB에 저장합니다</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 14. Embedding — 벡터 공간 시각화 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="13">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 3 · Indexing Pipeline</span>
+      <h1 class="slide__title">Embedding —<br><span class="hl">의미를 숫자로</span></h1>
+      <p class="slide__sub">텍스트를 의미 공간의 좌표(벡터)로 변환하는 기술</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-2" style="align-items:stretch;">
+        <!-- Left: 벡터 공간 다이어그램 -->
+        <div style="position:relative;overflow:hidden;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;min-height:0;flex:1;">
+          <!-- Y axis -->
+          <div style="position:absolute;left:12%;top:5%;bottom:9%;width:1px;background:rgba(255,255,255,0.1);"></div>
+          <!-- X axis -->
+          <div style="position:absolute;left:10%;right:4%;bottom:9%;height:1px;background:rgba(255,255,255,0.1);"></div>
+          <span style="position:absolute;left:4%;top:44%;font-size:0.55rem;color:var(--text-muted);transform:rotate(-90deg);">y</span>
+          <span style="position:absolute;right:2%;bottom:7%;font-size:0.55rem;color:var(--text-muted);">x</span>
+
+          <!-- AI/기술 구역 (오른쪽 위) -->
+          <div style="position:absolute;top:8%;right:5%;width:44%;height:46%;border:1px dashed rgba(45,212,191,0.28);border-radius:50%;pointer-events:none;"></div>
+          <span style="position:absolute;top:9%;right:10%;font-size:0.5rem;color:rgba(45,212,191,0.45);">AI 기술 구역</span>
+          <!-- AI nodes -->
+          <div style="position:absolute;top:20%;right:24%;background:rgba(45,212,191,0.18);border:1px solid rgba(45,212,191,0.45);border-radius:20px;padding:0.18em 0.55em;font-size:0.6rem;color:var(--teal);white-space:nowrap;">RAG</div>
+          <div style="position:absolute;top:15%;right:10%;background:rgba(45,212,191,0.14);border:1px solid rgba(45,212,191,0.38);border-radius:20px;padding:0.18em 0.55em;font-size:0.6rem;color:var(--teal);white-space:nowrap;">LLM</div>
+          <div style="position:absolute;top:30%;right:7%;background:rgba(45,212,191,0.14);border:1px solid rgba(45,212,191,0.38);border-radius:20px;padding:0.18em 0.55em;font-size:0.55rem;color:var(--teal);white-space:nowrap;">임베딩</div>
+          <div style="position:absolute;top:38%;right:22%;background:rgba(45,212,191,0.14);border:1px solid rgba(45,212,191,0.38);border-radius:20px;padding:0.18em 0.55em;font-size:0.55rem;color:var(--teal);white-space:nowrap;">벡터DB</div>
+
+          <!-- 쿼리 포인트 -->
+          <div style="position:absolute;top:49%;right:14%;background:rgba(240,180,41,0.22);border:1.5px solid rgba(240,180,41,0.6);border-radius:20px;padding:0.18em 0.55em;font-size:0.55rem;color:var(--yellow);white-space:nowrap;">쿼리</div>
+          <span style="position:absolute;top:57%;right:4%;font-size:0.45rem;color:rgba(240,180,41,0.45);white-space:nowrap;">"AI 검색 기술"</span>
+          <!-- 가깝다 레이블 -->
+          <span style="position:absolute;top:52%;right:18%;font-size:0.42rem;color:rgba(45,212,191,0.4);white-space:nowrap;">가깝다 = 의미 유사</span>
+
+          <!-- 스포츠 구역 (왼쪽 아래) -->
+          <div style="position:absolute;bottom:12%;left:13%;width:38%;height:40%;border:1px dashed rgba(167,139,250,0.28);border-radius:50%;pointer-events:none;"></div>
+          <span style="position:absolute;bottom:13%;left:14%;font-size:0.5rem;color:rgba(167,139,250,0.45);">스포츠 구역</span>
+          <!-- Sports nodes -->
+          <div style="position:absolute;bottom:32%;left:16%;background:rgba(167,139,250,0.14);border:1px solid rgba(167,139,250,0.38);border-radius:20px;padding:0.18em 0.55em;font-size:0.6rem;color:var(--purple);white-space:nowrap;">축구</div>
+          <div style="position:absolute;bottom:42%;left:24%;background:rgba(167,139,250,0.14);border:1px solid rgba(167,139,250,0.38);border-radius:20px;padding:0.18em 0.55em;font-size:0.6rem;color:var(--purple);white-space:nowrap;">드리블</div>
+          <div style="position:absolute;bottom:24%;left:30%;background:rgba(167,139,250,0.14);border:1px solid rgba(167,139,250,0.38);border-radius:20px;padding:0.18em 0.55em;font-size:0.55rem;color:var(--purple);white-space:nowrap;">슈팅</div>
+
+          <!-- 멀다 레이블 -->
+          <span style="position:absolute;top:52%;left:35%;font-size:0.42rem;color:var(--text-muted);transform:rotate(-28deg);white-space:nowrap;">멀다 = 의미 다름</span>
+        </div>
+        <!-- Right: 설명 -->
+        <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:0.3rem;">
+          <p class="body-text dim" style="line-height:1.8;">단순 벡터화와 달리 <span class="kw">의미(Semantics)를 보존</span>하며 숫자로 변환합니다.</p>
+          <ul class="bullet-list">
+            <li class="ok">의미 유사 → 벡터 공간에서 가깝게 배치</li>
+            <li class="ok">의미 상이 → 벡터 공간에서 멀리 배치</li>
+            <li class="note">키워드가 달라도 의미 같으면 검색 가능</li>
+          </ul>
+          <div class="tip">"AI로 문서 검색하는 법"으로 쿼리해도 "RAG" 청크를 찾을 수 있는 이유</div>
+        </div>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 15. [D] Vector DB -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--split" data-index="14">
+    <div class="split-left">
+      <span class="split__label">Chapter 3 · Indexing Pipeline</span>
+      <h2 class="split__title">Vector DB —<br><span class="hl">벡터 저장소</span></h2>
+      <p class="body-text dim" style="max-width:36ch;">임베딩된 벡터와 원본 텍스트를 함께 저장하는 특수 데이터베이스. Query Pipeline에서 유사도 검색에 활용됩니다.</p>
+      <ul class="bullet-list" style="max-width:38ch;">
+        <li class="ok"><code>FAISS</code> — Facebook AI, 로컬·고성능</li>
+        <li class="ok"><code>Chroma DB</code> — 오픈소스, 간편 설치</li>
+        <li class="ok"><code>Pinecone</code> — 클라우드 관리형 서비스</li>
+      </ul>
+    </div>
+    <div class="split-right split-right--teal">
+      <span class="split__label">저장 구조</span>
+      <p class="panel-quote">벡터 + 원본<br>텍스트를<br>함께 저장</p>
+      <div class="divider" style="width:100%;background:rgba(45,212,191,0.2);"></div>
+      <ul class="bullet-list" style="margin-top:0.5rem;">
+        <li style="font-size:clamp(0.85rem,1.3vw,1.05rem);">[−1.72, 0.12, … , 2.12]</li>
+        <li style="font-size:clamp(0.85rem,1.3vw,1.05rem);">원본: "안녕하세요, 오늘은…"</li>
+      </ul>
+    </div>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 16. [B] 섹션 전환 — Ch.4 Query Pipeline -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--section" data-index="15">
+    <nav class="section-menu">
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 1 · LLM의 한계
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 2 · RAG란 무엇인가
+      </div>
+      <div class="section-item">
+        <span class="section-arrow">→</span>
+        Chapter 3 · Indexing Pipeline
+      </div>
+      <div class="section-item section-item--active">
+        <span class="section-arrow">→</span>
+        Chapter 4 · Query Pipeline
+      </div>
+    </nav>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 17. [E] Query Pipeline 3단계 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="16">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 4 · Query Pipeline</span>
+      <h1 class="slide__title">Query <span class="hl">3단계</span> 흐름</h1>
+      <p class="slide__sub">검색(Retrieve)하고 증강(Augment)해서 답변을 생성(Generate)한다</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-35-65" style="align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:1.5rem;padding-top:0.4rem;">
+          <p class="body-text dim" style="line-height:1.8;">
+            질문마다<br><span class="kw">실시간으로</span><br>실행
+          </p>
+          <p class="caption muted">Indexing 결과를 기반으로 매번 동작</p>
+        </div>
+        <ul class="num-list">
+          <li>
+            <span class="num-circle">R</span>
+            <div>
+              <div style="font-weight:600;margin-bottom:0.3rem;font-size:clamp(1.1rem,2.1vw,1.5rem);">Retrieve — 검색</div>
+              <div class="caption">사용자 질문을 동일한 임베딩 모델로 벡터화 → Vector DB에서 유사도 높은 청크를 반환합니다</div>
+            </div>
+          </li>
+          <li>
+            <span class="num-circle num-circle--orange">A</span>
+            <div>
+              <div style="font-weight:600;margin-bottom:0.3rem;font-size:clamp(1.1rem,2.1vw,1.5rem);">Augment — 증강</div>
+              <div class="caption">검색된 청크(분할된 텍스트)를 프롬프트에 주입해 LLM의 컨텍스트를 보강합니다</div>
+            </div>
+          </li>
+          <li>
+            <span class="num-circle num-circle--purple">G</span>
+            <div>
+              <div style="font-weight:600;margin-bottom:0.3rem;font-size:clamp(1.1rem,2.1vw,1.5rem);">Generate — 생성</div>
+              <div class="caption">증강된 프롬프트로 LLM이 근거 기반의 정확한 최종 답변을 생성합니다</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 18. [G-2] 검색(Retrieve): 시맨틱 서치 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="17">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 4 · Retrieve</span>
+      <h1 class="slide__title">기존 검색 <span class="hl">vs</span> 시맨틱 서치</h1>
+      <p class="slide__sub">키워드 일치가 아닌, 문장의 의미 기반으로 결과를 찾는 검색 기법</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-2">
+        <div class="col-card" style="border-color:var(--border-orange);">
+          <span class="col-card__num col-card__num--orange">기존</span>
+          <div class="col-card__title">키워드 검색</div>
+          <div class="col-card__body">입력한 단어가 문서에 그대로 포함되어 있을 때만 결과를 반환합니다.</div>
+          <ul class="bullet-list">
+            <li class="no">"금리" 검색 시 "이자율" 문서 누락</li>
+            <li class="no">동의어·유사어 매칭 불가</li>
+            <li class="no">표현이 달라지면 검색 실패</li>
+          </ul>
+        </div>
+        <div class="col-card" style="border-color:var(--border-teal);">
+          <span class="col-card__num">시맨틱</span>
+          <div class="col-card__title">시맨틱 서치</div>
+          <div class="col-card__body">질문을 벡터로 변환해 Vector DB에서 의미가 가까운 청크를 유사도 기반으로 반환합니다.</div>
+          <ul class="bullet-list">
+            <li class="ok">"돈 빌리면 이자 얼마야?" → "금리" 청크 반환</li>
+            <li class="ok">키워드 달라도 의미 유사하면 검색 성공</li>
+            <li class="ok">유사도 점수로 관련도 순위 결정</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tip">사용자 쿼리를 <span class="kw">동일한 임베딩 모델</span>로 벡터화한 뒤 Vector DB에서 유사도 높은 청크를 반환</div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 19. [D] 증강(Augment) -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--split" data-index="18">
+    <div class="split-left">
+      <span class="split__label">Chapter 4 · Augment</span>
+      <h2 class="split__title">증강 —<br><span class="hl">프롬프트 강화</span></h2>
+      <p class="body-text dim" style="max-width:36ch;">검색된 청크를 프롬프트에 주입해 LLM의 컨텍스트를 보강합니다. 질문만 있던 프롬프트가 근거 자료를 포함한 강화된 프롬프트로 바뀝니다.</p>
+      <div class="card card--orange" style="margin-top:0.5rem;">
+        <div class="card__label" style="color:var(--orange);">증강 전</div>
+        <p class="caption">"삼성전자 실적은?"</p>
+      </div>
+    </div>
+    <div class="split-right split-right--teal">
+      <span class="split__label">증강 후</span>
+      <div class="card card--teal" style="width:100%;">
+        <div class="card__label">참고자료 (검색된 청크)</div>
+        <p class="caption" style="margin-bottom:0.5rem;">— 청크 A: 영업이익 6.6조</p>
+        <p class="caption">— 청크 B: 반도체 매출 증가</p>
+      </div>
+      <p class="caption" style="color:rgba(45,212,191,0.6);">+ 질문: "삼성전자 실적은?"</p>
+      <p class="panel-quote" style="font-size:clamp(1rem,1.8vw,1.4rem);">LLM이 근거를<br>갖고 답변 가능</p>
+    </div>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 20. [G-3] 생성(Generate) -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide" data-index="19">
+    <header class="slide__header">
+      <span class="slide__label">Chapter 4 · Generate</span>
+      <h1 class="slide__title">생성 —<span class="hl"> 근거 기반</span> 답변</h1>
+      <p class="slide__sub">검색된 청크들을 바탕으로 LLM이 최종 답변을 생성한다</p>
+    </header>
+    <main class="slide__body">
+      <div class="grid-3">
+        <div class="col-card" style="border-color:var(--border-teal);">
+          <span class="col-card__num">1</span>
+          <div class="col-card__title">청크 검색 완료</div>
+          <div class="col-card__body">벡터 공간에서 질문과 가장 유사한 청크 Top-K개를 반환합니다.</div>
+          <ul class="bullet-list">
+            <li>청크 1: 관련 문서 조각</li>
+            <li>청크 2: 관련 문서 조각</li>
+            <li>청크 3: 관련 문서 조각</li>
+          </ul>
+        </div>
+        <div class="col-card" style="border-color:var(--border-orange);">
+          <span class="col-card__num col-card__num--orange">2</span>
+          <div class="col-card__title">프롬프트 증강</div>
+          <div class="col-card__body">검색된 청크들을 컨텍스트로 묶어 LLM에 전달합니다.</div>
+          <ul class="bullet-list">
+            <li class="note">참고자료 + 질문 형태로 구성</li>
+            <li>LLM이 근거를 바탕으로 판단</li>
+          </ul>
+        </div>
+        <div class="col-card" style="border-color:var(--border-purple);">
+          <span class="col-card__num col-card__num--purple">3</span>
+          <div class="col-card__title">LLM 답변 생성</div>
+          <div class="col-card__body">주입된 청크 기반으로 LLM이 환각 없이 정확한 답변을 생성합니다.</div>
+          <ul class="bullet-list">
+            <li class="ok">근거 기반 신뢰도 높은 답변</li>
+            <li class="ok">출처 추적 가능</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tip">주입된 프롬프트에 의해 LLM이 <span class="kw">근거 기반</span>으로 최종 답변 생성 — Hallucination 대폭 감소</div>
+    </main>
+    <footer class="slide__footer"><span>후츠릿 · RAG 완전 정복</span></footer>
+  </article>
+
+  <!-- ───────────────────────────────────────────── -->
+  <!-- 21. [M] 클로징 -->
+  <!-- ───────────────────────────────────────────── -->
+  <article class="slide slide--statement" data-index="20">
+    <p class="slide__label" style="margin-bottom:2.1rem;">RAG 완전 정복 · 2026</p>
+    <h1 class="display" style="font-size:clamp(3rem,8vw,6.5rem);">
+      이제 RAG를<br><span style="color:var(--teal);">직접 구현할 차례</span>
+    </h1>
+    <p class="body-text dim" style="margin-top:2.7rem;max-width:44ch;line-height:1.7;">
+      LLM의 한계 → RAG 개념 → Indexing → Query.<br>
+      이론을 알았으니 LangChain으로 직접 만들어 봅시다.
+    </p>
+    <div style="margin-top:3rem;display:flex;align-items:center;gap:1.8rem;">
+      <span style="font-weight:700;font-size:clamp(1rem,1.8vw,1.3rem);">후츠릿</span>
+      <span class="muted">·</span>
+      <span class="caption muted">RAG 완전 정복</span>
+    </div>
+  </article>
+
+</div>
+
+<script>
+class SlidePresentation {
+  constructor() {
+    this.slides      = Array.from(document.querySelectorAll('.slide'));
+    this.total       = this.slides.length;
+    this.current     = 0;
+    this.isAnimating = false;
+    this._tx = 0; this._ty = 0;
+    this._init();
+  }
+  _init() {
+    document.getElementById('tot').textContent = this.total;
+    this._buildDots(); this._bindKeys(); this._bindTouch(); this._bindButtons(); this._update();
+  }
+  next() { if (!this.isAnimating) this._go(this.current + 1); }
+  prev() { if (!this.isAnimating) this._go(this.current - 1); }
+  _go(i) {
+    if (i < 0 || i >= this.total || i === this.current || this.isAnimating) return;
+    this.isAnimating = true;
+    this.slides[this.current].classList.remove('active');
+    this.slides[i].classList.add('active');
+    this.current = i;
+    this.slides[i].addEventListener('transitionend', () => { this.isAnimating = false; this._update(); }, { once: true });
+    setTimeout(() => { this.isAnimating = false; this._update(); }, 500);
+    this._update();
+  }
+  _update() {
+    const pct = (this.current + 1) / this.total * 100;
+    document.getElementById('progress').style.width = pct + '%';
+    document.getElementById('cur').textContent = this.current + 1;
+    document.getElementById('btn-prev').disabled = this.current === 0;
+    document.getElementById('btn-next').disabled = this.current === this.total - 1;
+    document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === this.current));
+  }
+  _buildDots() {
+    const nav = document.getElementById('dot-nav');
+    this.slides.forEach((_, i) => {
+      const b = document.createElement('button');
+      b.className = 'dot' + (i === 0 ? ' active' : '');
+      b.setAttribute('aria-label', `슬라이드 ${i + 1}`);
+      b.addEventListener('click', () => { if (!this.isAnimating) this._go(i); });
+      nav.appendChild(b);
+    });
+  }
+  _bindKeys() {
+    document.addEventListener('keydown', e => {
+      if (this.isAnimating) return;
+      switch (e.key) {
+        case 'ArrowRight': case ' ': e.preventDefault(); this.next(); break;
+        case 'ArrowLeft':            e.preventDefault(); this.prev(); break;
+        case 'Home': e.preventDefault(); this._go(0);              break;
+        case 'End':  e.preventDefault(); this._go(this.total - 1); break;
+      }
+    });
+  }
+  _bindTouch() {
+    const deck = document.getElementById('deck');
+    deck.addEventListener('touchstart', e => { this._tx = e.changedTouches[0].screenX; this._ty = e.changedTouches[0].screenY; }, { passive: true });
+    deck.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].screenX - this._tx;
+      const dy = e.changedTouches[0].screenY - this._ty;
+      if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 50 || this.isAnimating) return;
+      dx < 0 ? this.next() : this.prev();
+    }, { passive: true });
+  }
+  _bindButtons() {
+    document.getElementById('btn-prev').addEventListener('click', () => this.prev());
+    document.getElementById('btn-next').addEventListener('click', () => this.next());
+  }
+}
+new SlidePresentation();
+</script>
+</body>
+</html>
